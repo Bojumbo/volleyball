@@ -119,7 +119,7 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
       </div>
 
       {/* ADMIN SUBTABS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px' }}>
         {[
           { id: 'capacity', label: 'Ліміти', icon: <Settings size={13} /> },
           { id: 'attendance', label: 'Відвідуваність', icon: <Check size={13} /> },
@@ -130,6 +130,7 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
             key={sub.id}
             onClick={() => setActiveSubTab(sub.id)}
             style={{
+              flex: '1 1 130px',
               background: activeSubTab === sub.id ? 'var(--accent-pink)' : 'rgba(255,255,255,0.02)',
               color: activeSubTab === sub.id ? '#000' : 'var(--text-secondary)',
               border: activeSubTab === sub.id ? 'none' : '1px solid var(--border-glass)',

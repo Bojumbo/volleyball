@@ -250,7 +250,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '80px' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '100px', maxWidth: '680px', margin: '0 auto', width: '100%', position: 'relative' }}>
       
       {/* SIMULATOR BAR (only outside Telegram environment) */}
       {!isTelegramEnv && (
