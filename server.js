@@ -192,7 +192,7 @@ app.post('/api/admin/users/role', async (req, res) => {
   }
 });
 
-// Admin triggers bot feedback surveys for a date manually
+// Admin triggers bot feedback surveys for a date manually (all unsent)
 app.post('/api/admin/sessions/trigger-survey', async (req, res) => {
   const { date } = req.body;
   if (!date) {
@@ -201,9 +201,31 @@ app.post('/api/admin/sessions/trigger-survey', async (req, res) => {
 
   try {
     const result = await bot.sendFeedbackSurveyForDate(date);
+    if (!result.success && result.alreadySent) {
+      return res.status(409).json({ alreadySent: true, error: result.reason });
+    }
     res.json(result);
   } catch (err) {
     console.error('Помилка запуску опитування:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin sends survey to a single user by registrationId
+app.post('/api/admin/sessions/trigger-survey-user', async (req, res) => {
+  const { registrationId } = req.body;
+  if (!registrationId) {
+    return res.status(400).json({ error: 'registrationId є обовʼязковим полем' });
+  }
+
+  try {
+    const result = await bot.sendFeedbackSurveyToUser(parseInt(registrationId));
+    if (!result.success && result.alreadySent) {
+      return res.status(409).json({ alreadySent: true, error: result.reason });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('Помилка одиночного опитування:', err);
     res.status(500).json({ error: err.message });
   }
 });

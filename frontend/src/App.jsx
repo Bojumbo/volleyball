@@ -236,11 +236,28 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date })
     });
+    const data = await response.json();
     if (!response.ok) {
-      const errData = await response.json();
-      throw new Error(errData.error || 'Помилка відправки опитування');
+      const err = new Error(data.error || 'Помилка відправки опитування');
+      err.alreadySent = data.alreadySent || false;
+      throw err;
     }
-    return await response.json();
+    return data;
+  };
+
+  const handleTriggerSurveyUser = async (registrationId) => {
+    const response = await fetch('/api/admin/sessions/trigger-survey-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registrationId })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      const err = new Error(data.error || 'Помилка відправки опитування');
+      err.alreadySent = data.alreadySent || false;
+      throw err;
+    }
+    return data;
   };
 
   const handleSubmitFeedback = async (registrationId, rating, feedback) => {
@@ -460,6 +477,7 @@ export default function App() {
                 onUpdateAttendance={handleUpdateAttendance}
                 onUpdateRole={handleUpdateRole}
                 onTriggerSurvey={handleTriggerSurvey}
+                onTriggerSurveyUser={handleTriggerSurveyUser}
                 refreshData={refreshAllData}
                 onDeleteUser={handleDeleteUser}
                 onDeleteRegistration={handleDeleteRegistration}

@@ -259,7 +259,6 @@ async function sendFeedbackSurvey(registrationId) {
 
     if (!registration || !registration.telegram_id) return false;
 
-    // Format date beautifully
     const sessionDate = registration.date;
 
     await bot.sendMessage(
@@ -276,6 +275,9 @@ async function sendFeedbackSurvey(registrationId) {
         }
       }
     );
+
+    // Mark survey as sent
+    await db.dbRun('UPDATE registrations SET survey_sent = 1 WHERE id = ?', [registrationId]);
     return true;
   } catch (err) {
     console.error(`Не вдалося надіслати опитування для запису ${registrationId}:`, err);
@@ -283,7 +285,39 @@ async function sendFeedbackSurvey(registrationId) {
   }
 }
 
-// Helper to broadcast survey to all attendees of a specific date
+// Send survey to a single registration by ID, with already-sent check
+async function sendFeedbackSurveyToUser(registrationId) {
+  if (!bot) return { success: false, reason: 'Бот не активований' };
+
+  try {
+    const reg = await db.dbGet(
+      `SELECT r.id, r.survey_sent, u.first_name, s.date
+       FROM registrations r
+       JOIN users u ON r.user_id = u.id
+       JOIN sessions s ON r.session_id = s.id
+       WHERE r.id = ?`,
+      [registrationId]
+    );
+
+    if (!reg) return { success: false, reason: 'Запис не знайдено' };
+
+    if (reg.survey_sent) {
+      return { success: false, alreadySent: true, reason: `Лист вже було надіслано для ${reg.first_name} (${reg.date})` };
+    }
+
+    const ok = await sendFeedbackSurvey(registrationId);
+    if (ok) {
+      return { success: true, sentCount: 1 };
+    } else {
+      return { success: false, reason: 'Не вдалося надіслати повідомлення (бот не знайшов користувача)' };
+    }
+  } catch (err) {
+    console.error('Помилка sendFeedbackSurveyToUser:', err);
+    return { success: false, reason: err.message };
+  }
+}
+
+// Helper to broadcast survey to all attendees of a specific date (skips already-sent)
 async function sendFeedbackSurveyForDate(date) {
   if (!bot) return { success: false, reason: 'Бот не активований' };
 
@@ -291,10 +325,15 @@ async function sendFeedbackSurveyForDate(date) {
     const session = await db.dbGet('SELECT id FROM sessions WHERE date = ?', [date]);
     if (!session) return { success: false, reason: 'Сесія не знайдена' };
 
+    // Only registrations where survey has NOT been sent yet
     const registrations = await db.dbAll(
-      'SELECT id, user_id FROM registrations WHERE session_id = ?',
+      'SELECT id, user_id FROM registrations WHERE session_id = ? AND survey_sent = 0',
       [session.id]
     );
+
+    if (registrations.length === 0) {
+      return { success: false, alreadySent: true, reason: `Лист вже було надіслано всім учасникам на ${date}` };
+    }
 
     let sentCount = 0;
     for (const reg of registrations) {
@@ -313,6 +352,7 @@ module.exports = {
   initBot,
   sendFeedbackSurvey,
   sendFeedbackSurveyForDate,
+  sendFeedbackSurveyToUser,
   getBotInstance: () => bot,
   getBotUsername: () => botUsername
 };

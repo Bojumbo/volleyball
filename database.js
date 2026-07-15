@@ -68,11 +68,19 @@ async function initDatabase() {
       attended INTEGER DEFAULT NULL, -- NULL = pending, 1 = yes, 0 = no
       rating INTEGER DEFAULT NULL, -- 1-5
       feedback TEXT DEFAULT NULL,
+      survey_sent INTEGER DEFAULT 0, -- 0 = not sent, 1 = sent
       FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
       UNIQUE(session_id, user_id)
     )
   `);
+
+  // Migration: add survey_sent column if it doesn't exist yet (for existing DBs)
+  try {
+    await dbRun('ALTER TABLE registrations ADD COLUMN survey_sent INTEGER DEFAULT 0');
+  } catch (e) {
+    // Column already exists — ignore
+  }
 
   // Seed default simulator users if tables are empty
   const userCount = await dbGet('SELECT COUNT(*) as count FROM users');

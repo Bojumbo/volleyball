@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Settings, Users, Star, Check, X, BellRing, MessageSquare, Plus, Minus, CheckCircle, HelpCircle, Trash2, UserMinus, RefreshCw } from 'lucide-react';
 
-export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUpdateAttendance, onUpdateRole, onTriggerSurvey, refreshData, onDeleteUser, onDeleteRegistration }) {
+export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUpdateAttendance, onUpdateRole, onTriggerSurvey, onTriggerSurveyUser, refreshData, onDeleteUser, onDeleteRegistration }) {
   const [activeSubTab, setActiveSubTab] = useState('capacity');
   const [selectedDateAttendance, setSelectedDateAttendance] = useState(null);
   
   const [capacityLoading, setCapacityLoading] = useState({});
   const [attendanceLoading, setAttendanceLoading] = useState({});
   const [surveyLoading, setSurveyLoading] = useState({});
-  const [surveySuccess, setSurveySuccess] = useState({});
+  const [surveyStatus, setSurveyStatus] = useState({}); // { [date]: { type: 'success'|'warning'|'error', msg } }
+  const [surveyUserLoading, setSurveyUserLoading] = useState({}); // { [regId]: bool }
+  const [surveyUserStatus, setSurveyUserStatus] = useState({}); // { [regId]: { type, msg } }
   const [deleteLoading, setDeleteLoading] = useState({});
   const [feedbackRefreshing, setFeedbackRefreshing] = useState(false);
 
@@ -84,18 +86,43 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
 
   const handleTriggerSurvey = async (date) => {
     setSurveyLoading(prev => ({ ...prev, [date]: true }));
-    setSurveySuccess(prev => ({ ...prev, [date]: null }));
+    setSurveyStatus(prev => ({ ...prev, [date]: null }));
     try {
       const res = await onTriggerSurvey(date);
       if (res.success) {
-        setSurveySuccess(prev => ({ ...prev, [date]: `Надіслано! Кількість чатів: ${res.sentCount}` }));
+        setSurveyStatus(prev => ({ ...prev, [date]: { type: 'success', msg: `✅ Надіслано! Кількість чатів: ${res.sentCount}` } }));
       } else {
-        alert(res.reason || 'Не вдалося надіслати опитування (перевірте токен бота).');
+        setSurveyStatus(prev => ({ ...prev, [date]: { type: 'error', msg: res.reason || 'Не вдалося надіслати опитування.' } }));
       }
     } catch (err) {
-      alert('Помилка при запуску опитування.');
+      if (err.alreadySent) {
+        setSurveyStatus(prev => ({ ...prev, [date]: { type: 'warning', msg: `⚠️ ${err.message}` } }));
+      } else {
+        setSurveyStatus(prev => ({ ...prev, [date]: { type: 'error', msg: err.message || 'Помилка при запуску опитування.' } }));
+      }
     } finally {
       setSurveyLoading(prev => ({ ...prev, [date]: false }));
+    }
+  };
+
+  const handleTriggerSurveyUser = async (regId, name) => {
+    setSurveyUserLoading(prev => ({ ...prev, [regId]: true }));
+    setSurveyUserStatus(prev => ({ ...prev, [regId]: null }));
+    try {
+      const res = await onTriggerSurveyUser(regId);
+      if (res.success) {
+        setSurveyUserStatus(prev => ({ ...prev, [regId]: { type: 'success', msg: '✅ Надіслано!' } }));
+      } else {
+        setSurveyUserStatus(prev => ({ ...prev, [regId]: { type: 'error', msg: res.reason || 'Помилка.' } }));
+      }
+    } catch (err) {
+      if (err.alreadySent) {
+        setSurveyUserStatus(prev => ({ ...prev, [regId]: { type: 'warning', msg: '⚠️ Вже надіслано!' } }));
+      } else {
+        setSurveyUserStatus(prev => ({ ...prev, [regId]: { type: 'error', msg: err.message || 'Помилка.' } }));
+      }
+    } finally {
+      setSurveyUserLoading(prev => ({ ...prev, [regId]: false }));
     }
   };
 
@@ -231,11 +258,17 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
                   </button>
                 </div>
 
-                {isSurveySent && (
-                  <div style={{ background: 'rgba(204, 255, 0, 0.1)', border: '1px solid var(--accent-lime)', padding: '10px', borderRadius: '8px', color: 'var(--accent-lime)', fontSize: '0.82rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle size={14} /><span>{isSurveySent}</span>
-                  </div>
-                )}
+                {/* Survey status banner (all users) */}
+                {surveyStatus[selectedDateAttendance] && (() => {
+                  const s = surveyStatus[selectedDateAttendance];
+                  const colors = { success: ['rgba(204,255,0,0.1)', 'var(--accent-lime)'], warning: ['rgba(255,165,0,0.1)', '#ffaa00'], error: ['rgba(255,0,127,0.1)', 'var(--accent-pink)'] };
+                  const [bg, border] = colors[s.type] || colors.error;
+                  return (
+                    <div style={{ background: bg, border: `1px solid ${border}`, padding: '10px 14px', borderRadius: '8px', color: border, fontSize: '0.82rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {s.msg}
+                    </div>
+                  );
+                })()}
 
                 {sess.registrations.length === 0 ? (
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', padding: '20px 0' }}>Немає зареєстрованих гравців.</p>
@@ -243,33 +276,62 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {sess.registrations.map((reg) => {
                       const isLoad = attendanceLoading[reg.id] || deleteLoading[`r${reg.id}`];
+                      const userSurveyStatus = surveyUserStatus[reg.id];
+                      const userSurveyLoading = surveyUserLoading[reg.id];
+                      // survey_sent from DB — shown as a grey badge
+                      const alreadySentInDb = reg.survey_sent === 1;
                       return (
-                        <div key={reg.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                          <div>
-                            <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>{reg.first_name} {reg.last_name}</div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              {reg.game_type === 'competitive' ? '🏆' : '🏋️'} {reg.location === 'beach' ? '🏖️' : '🏟️'} {reg.duration}год
+                        <div key={reg.id} style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
+                          {/* Top row: name + actions */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <div>
+                              <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.9rem' }}>{reg.first_name} {reg.last_name}</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {reg.game_type === 'competitive' ? '🏆' : '🏋️'} {reg.location === 'beach' ? '🏖️' : '🏟️'} {reg.duration}год
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                              <button onClick={() => handleAttendanceChange(reg.id, 1)} disabled={isLoad}
+                                style={{ background: reg.attended === 1 ? 'var(--accent-lime)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (reg.attended === 1 ? 'var(--accent-lime)' : 'var(--border-glass)'), color: reg.attended === 1 ? '#000' : 'var(--text-secondary)', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                                <Check size={11} />Був
+                              </button>
+                              <button onClick={() => handleAttendanceChange(reg.id, 0)} disabled={isLoad}
+                                style={{ background: reg.attended === 0 ? 'var(--accent-pink)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (reg.attended === 0 ? 'var(--accent-pink)' : 'var(--border-glass)'), color: reg.attended === 0 ? '#fff' : 'var(--text-secondary)', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                                <X size={11} />Пропустив
+                              </button>
+                              <button onClick={() => handleAttendanceChange(reg.id, null)} disabled={isLoad}
+                                style={{ background: reg.attended === null ? 'var(--bg-tertiary)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (reg.attended === null ? 'var(--accent-cyan)' : 'var(--border-glass)'), color: reg.attended === null ? 'var(--accent-cyan)' : 'var(--text-muted)', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                                <HelpCircle size={11} />?
+                              </button>
+                              {/* Individual survey button */}
+                              <button
+                                onClick={() => handleTriggerSurveyUser(reg.id, `${reg.first_name} ${reg.last_name}`)}
+                                disabled={isLoad || userSurveyLoading}
+                                title={alreadySentInDb ? 'Лист вже надіслано цьому гравцю' : 'Надіслати лист відвідуваності'}
+                                style={{
+                                  background: alreadySentInDb ? 'rgba(255,255,255,0.03)' : 'rgba(0,240,255,0.05)',
+                                  border: '1px solid ' + (alreadySentInDb ? 'var(--border-glass)' : 'var(--accent-cyan)'),
+                                  color: alreadySentInDb ? 'var(--text-muted)' : 'var(--accent-cyan)',
+                                  padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px',
+                                  display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer', opacity: userSurveyLoading ? 0.6 : 1
+                                }}
+                              >
+                                <BellRing size={11} />
+                                {alreadySentInDb ? '📨' : '🤖'}
+                              </button>
+                              {/* Remove from session */}
+                              <button onClick={() => handleDeleteRegistration(reg.id, `${reg.first_name} ${reg.last_name}`, selectedDateAttendance)} disabled={isLoad}
+                                style={{ background: 'rgba(255,0,127,0.05)', border: '1px solid rgba(255,0,127,0.3)', color: 'var(--accent-pink)', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                                <UserMinus size={11} />Видалити
+                              </button>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                            <button onClick={() => handleAttendanceChange(reg.id, 1)} disabled={isLoad}
-                              style={{ background: reg.attended === 1 ? 'var(--accent-lime)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (reg.attended === 1 ? 'var(--accent-lime)' : 'var(--border-glass)'), color: reg.attended === 1 ? '#000' : 'var(--text-secondary)', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
-                              <Check size={11} />Був
-                            </button>
-                            <button onClick={() => handleAttendanceChange(reg.id, 0)} disabled={isLoad}
-                              style={{ background: reg.attended === 0 ? 'var(--accent-pink)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (reg.attended === 0 ? 'var(--accent-pink)' : 'var(--border-glass)'), color: reg.attended === 0 ? '#fff' : 'var(--text-secondary)', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
-                              <X size={11} />Пропустив
-                            </button>
-                            <button onClick={() => handleAttendanceChange(reg.id, null)} disabled={isLoad}
-                              style={{ background: reg.attended === null ? 'var(--bg-tertiary)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (reg.attended === null ? 'var(--accent-cyan)' : 'var(--border-glass)'), color: reg.attended === null ? 'var(--accent-cyan)' : 'var(--text-muted)', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
-                              <HelpCircle size={11} />?
-                            </button>
-                            {/* Remove from session */}
-                            <button onClick={() => handleDeleteRegistration(reg.id, `${reg.first_name} ${reg.last_name}`, selectedDateAttendance)} disabled={isLoad}
-                              style={{ background: 'rgba(255,0,127,0.05)', border: '1px solid rgba(255,0,127,0.3)', color: 'var(--accent-pink)', padding: '5px 10px', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
-                              <UserMinus size={11} />Видалити
-                            </button>
-                          </div>
+                          {/* Per-user survey status */}
+                          {userSurveyStatus && (
+                            <div style={{ marginTop: '6px', fontSize: '0.75rem', color: userSurveyStatus.type === 'success' ? 'var(--accent-lime)' : userSurveyStatus.type === 'warning' ? '#ffaa00' : 'var(--accent-pink)', paddingLeft: '4px' }}>
+                              {userSurveyStatus.msg}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
