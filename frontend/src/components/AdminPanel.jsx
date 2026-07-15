@@ -225,7 +225,7 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
               {sessions.map((sess) => {
                 const isSelected = selectedDateAttendance === sess.date;
                 return (
-                  <div key={sess.id} onClick={() => { setSelectedDateAttendance(sess.date); setSurveySuccess(prev => ({ ...prev, [sess.date]: null })); }}
+                  <div key={sess.id} onClick={() => { setSelectedDateAttendance(sess.date); setSurveyStatus(prev => ({ ...prev, [sess.date]: null })); }}
                     style={{ background: isSelected ? 'rgba(255, 0, 127, 0.08)' : 'rgba(255,255,255,0.01)', border: isSelected ? '1.5px solid var(--accent-pink)' : '1px solid var(--border-glass)', padding: '8px 4px', borderRadius: '8px', textAlign: 'center', cursor: 'pointer' }}>
                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: isSelected ? 'var(--accent-pink)' : '#fff' }}>
                       {new Date(sess.date).toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'short' })}
@@ -241,7 +241,6 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
           {selectedDateAttendance && (() => {
             const sess = sessions.find(s => s.date === selectedDateAttendance);
             if (!sess) return null;
-            const isSurveySent = surveySuccess[selectedDateAttendance];
             return (
               <div className="glass animate-fade-in" style={{ padding: '20px', border: '1px solid var(--border-active)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '14px', marginBottom: '16px' }}>
