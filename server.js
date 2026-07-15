@@ -17,6 +17,12 @@ app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
 // --- API ROUTES ---
 
+// Bot info (returns bot username so frontend can render Telegram Login Widget)
+app.get('/api/bot/info', (req, res) => {
+  const username = bot.getBotUsername ? bot.getBotUsername() : (process.env.BOT_USERNAME || '');
+  res.json({ username });
+});
+
 // Auth / Register user from Telegram WebApp initData
 app.post('/api/user/auth', async (req, res) => {
   const { telegram_id, username, first_name, last_name } = req.body;
@@ -113,6 +119,14 @@ app.post('/api/feedback/submit', async (req, res) => {
     console.error('Помилка відправки відгуку:', err);
     res.status(500).json({ error: 'Внутрішня помилка сервера' });
   }
+});
+
+
+// Get bot info (like username) for Telegram Widget login
+app.get('/api/bot/info', (req, res) => {
+  res.json({
+    username: bot.getBotUsername() || null
+  });
 });
 
 

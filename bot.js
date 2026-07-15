@@ -5,6 +5,7 @@ const TelegramBot = typeof TelegramBotRaw === 'function'
 const db = require('./database');
 
 let bot = null;
+let botUsername = '';
 const userStates = {}; // Simple in-memory user states for feedback text flow
 
 function initBot(appUrl) {
@@ -17,6 +18,14 @@ function initBot(appUrl) {
   // Use polling for local development
   bot = new TelegramBot(token, { polling: true });
   console.log('🤖 Telegram Bot успішно запущено.');
+
+  // Fetch bot info dynamically
+  bot.getMe().then(me => {
+    botUsername = me.username;
+    console.log(`🤖 Бот отримав ім'я: @${botUsername}`);
+  }).catch(err => {
+    console.warn('⚠️ Не вдалося отримати імʼя бота через API:', err.message);
+  });
 
   // ── Persistent Menu Button ──────────────────────────────────────────────
   // Set a WebApp button that always shows in the bottom of every chat with the bot.
@@ -63,10 +72,8 @@ function initBot(appUrl) {
       bot.sendMessage(chatId, welcomeMessage, {
         reply_markup: {
           inline_keyboard: [
-            // Primary button — opens the Mini App inline inside Telegram
-            [{ text: '🏐 Відкрити додаток', web_app: { url: appUrl } }],
-            // Fallback button — opens the link in browser (useful for desktop Telegram)
-            [{ text: '🔗 Відкрити у браузері', url: appUrl }]
+            // Primary button — opens the Mini App inline inside Telegram (No browser fallback)
+            [{ text: '🏐 Відкрити додаток', web_app: { url: appUrl } }]
           ]
         }
       });
@@ -306,5 +313,6 @@ module.exports = {
   initBot,
   sendFeedbackSurvey,
   sendFeedbackSurveyForDate,
-  getBotInstance: () => bot
+  getBotInstance: () => bot,
+  getBotUsername: () => botUsername
 };
