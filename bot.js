@@ -249,7 +249,7 @@ async function sendFeedbackSurvey(registrationId) {
 
   try {
     const registration = await db.dbGet(
-      `SELECT r.id, u.telegram_id, s.date 
+      `SELECT r.id, u.telegram_id, s.date, u.first_name 
        FROM registrations r 
        JOIN users u ON r.user_id = u.id 
        JOIN sessions s ON r.session_id = s.id 
@@ -260,6 +260,15 @@ async function sendFeedbackSurvey(registrationId) {
     if (!registration || !registration.telegram_id) return false;
 
     const sessionDate = registration.date;
+
+    // Check if it is a mock user (non-numeric Telegram ID)
+    const isNumericId = /^\d+$/.test(registration.telegram_id);
+    if (!isNumericId) {
+      console.log(`[SIMULATION] Надсилаємо тестове опитування для ${registration.first_name} (ID: ${registration.telegram_id})`);
+      // Update DB to mark sent
+      await db.dbRun('UPDATE registrations SET survey_sent = 1 WHERE id = ?', [registrationId]);
+      return true;
+    }
 
     await bot.sendMessage(
       registration.telegram_id,
@@ -280,7 +289,15 @@ async function sendFeedbackSurvey(registrationId) {
     await db.dbRun('UPDATE registrations SET survey_sent = 1 WHERE id = ?', [registrationId]);
     return true;
   } catch (err) {
-    console.error(`Не вдалося надіслати опитування для запису ${registrationId}:`, err);
+    console.error(`Не вдалося надіслати опитування для запису ${registrationId}:`, err.message);
+    
+    // Even if it failed because user blocked the bot (403/400), we should mark it as sent 
+    // to prevent infinite retry loops by the admin.
+    try {
+      await db.dbRun('UPDATE registrations SET survey_sent = 1 WHERE id = ?', [registrationId]);
+    } catch (dbErr) {
+      console.error('Не вдалося оновити статус після помилки відправки:', dbErr.message);
+    }
     return false;
   }
 }
