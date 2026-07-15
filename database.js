@@ -358,5 +358,6 @@ module.exports = {
   deleteUser,
   deleteRegistration,
   dbAll,
-  dbGet
+  dbGet,
+  dbRun
 };
