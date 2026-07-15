@@ -318,6 +318,20 @@ async function getAdminDashboardData() {
   };
 }
 
+// Delete a user and all their registrations
+async function deleteUser(userId) {
+  await dbRun('DELETE FROM registrations WHERE user_id = ?', [userId]);
+  await dbRun('DELETE FROM users WHERE id = ?', [userId]);
+  return { status: 'deleted' };
+}
+
+// Delete a single registration by ID (admin removes player from session)
+async function deleteRegistration(registrationId) {
+  await dbRun('DELETE FROM registrations WHERE id = ?', [registrationId]);
+  return { status: 'deleted' };
+}
+
+
 module.exports = {
   initDatabase,
   getOrCreateUserByTelegramId,
@@ -333,6 +347,8 @@ module.exports = {
   updateAttendanceByUserAndSession,
   submitFeedback,
   getAdminDashboardData,
+  deleteUser,
+  deleteRegistration,
   dbAll,
   dbGet
 };

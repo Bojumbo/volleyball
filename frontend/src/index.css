@@ -223,3 +223,73 @@ button {
 .custom-range::-webkit-slider-thumb:hover {
   transform: scale(1.2);
 }
+
+/* ── Responsive / Mobile Fixes ──────────────────────────────────────────────── */
+
+/* Ensure main content doesn't hide under fixed bottom nav */
+main {
+  padding-bottom: 100px;
+}
+
+/* Safe-area bottom for iPhone notch/home bar */
+nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Simulator bar: stack vertically on small screens */
+@media (max-width: 480px) {
+  .simulator-bar {
+    padding: 8px 10px;
+  }
+
+  .simulator-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .simulator-content > div:first-child {
+    font-size: 0.8rem;
+  }
+
+  /* Bottom nav: shrink text on very small screens */
+  nav span {
+    font-size: 0.65rem !important;
+  }
+
+  nav button {
+    padding: 4px !important;
+  }
+
+  /* Tables: allow horizontal scroll */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Calendar day cards: smaller on mobile */
+  .calendar-day {
+    padding: 8px 4px !important;
+    font-size: 0.8rem;
+  }
+}
+
+/* Medium screens: nav max-width covers full width */
+@media (max-width: 540px) {
+  nav {
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 8px !important;
+    height: auto !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+}
+
+/* Buttons: always touch-friendly (min 36px height) */
+button {
+  min-height: 30px;
+  touch-action: manipulation;
+}

@@ -199,6 +199,18 @@ export default function App() {
     await refreshAllData();
   };
 
+  const handleDeleteUser = async (userId) => {
+    const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Не вдалося видалити користувача');
+    await refreshAllData();
+  };
+
+  const handleDeleteRegistration = async (registrationId) => {
+    const response = await fetch(`/api/admin/registrations/${registrationId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Не вдалося видалити запис');
+    await refreshAllData();
+  };
+
   const refreshAllData = async () => {
     const freshSessions = await fetchSessions();
     if (currentUser) {
@@ -341,6 +353,8 @@ export default function App() {
                 onUpdateRole={handleUpdateRole}
                 onTriggerSurvey={handleTriggerSurvey}
                 refreshData={refreshAllData}
+                onDeleteUser={handleDeleteUser}
+                onDeleteRegistration={handleDeleteRegistration}
               />
             )}
           </>

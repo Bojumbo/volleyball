@@ -194,10 +194,80 @@ app.post('/api/admin/sessions/trigger-survey', async (req, res) => {
   }
 });
 
+// Admin: delete a user and all their registrations
+app.delete('/api/admin/users/:userId', async (req, res) => {
+  const userId = parseInt(req.params.userId);
+  if (!userId) return res.status(400).json({ error: 'userId є обовʼязковим' });
+
+  try {
+    await db.deleteUser(userId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Помилка видалення користувача:', err);
+    res.status(500).json({ error: 'Внутрішня помилка сервера' });
+  }
+});
+
+// Admin: remove a single registration (kick player from session)
+app.delete('/api/admin/registrations/:registrationId', async (req, res) => {
+  const regId = parseInt(req.params.registrationId);
+  if (!regId) return res.status(400).json({ error: 'registrationId є обовʼязковим' });
+
+  try {
+    await db.deleteRegistration(regId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Помилка видалення запису:', err);
+    res.status(500).json({ error: 'Внутрішня помилка сервера' });
+  }
+});
+
 // Fallback to serving the HTML index for any other requests (React client-side routing)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
 });
+
+// ── Daily auto-survey scheduler at 23:00 Kyiv time (UTC+3) ─────────────────
+function scheduleDailySurveys() {
+  const kyivOffsetMs = 3 * 60 * 60 * 1000; // UTC+3
+
+  function getNextTargetMs() {
+    const utcNow = Date.now();
+    const kyivNow = new Date(utcNow + kyivOffsetMs);
+
+    // Build target: today at 23:00 Kyiv
+    const target = new Date(kyivNow);
+    target.setHours(23, 0, 0, 0);
+
+    // If 23:00 already passed today, aim for tomorrow
+    if (target.getTime() <= kyivNow.getTime()) {
+      target.setDate(target.getDate() + 1);
+    }
+
+    return target.getTime() - kyivNow.getTime();
+  }
+
+  function runAndReschedule() {
+    const utcNow = Date.now();
+    const kyivNow = new Date(utcNow + kyivOffsetMs);
+    const todayKyiv = kyivNow.toISOString().split('T')[0];
+
+    console.log(`⏰ Автоматичне опитування о 23:00 для дати: ${todayKyiv}`);
+    bot.sendFeedbackSurveyForDate(todayKyiv).then(res => {
+      console.log(`📤 Надіслано опитувань: ${res.sentCount || 0}`);
+    }).catch(err => {
+      console.error('Помилка автоматичного опитування:', err.message);
+    });
+
+    // Schedule next run in ~24 hours
+    setTimeout(runAndReschedule, getNextTargetMs());
+  }
+
+  const msUntilFirst = getNextTargetMs();
+  const kyivTarget = new Date(Date.now() + kyivOffsetMs + msUntilFirst);
+  console.log(`⏳ Автоматичне опитування заплановано на: ${kyivTarget.toISOString().replace('T', ' ').slice(0, 16)} за Київським часом`);
+  setTimeout(runAndReschedule, msUntilFirst);
+}
 
 // Start Express and DB
 async function startServer() {
@@ -209,7 +279,10 @@ async function startServer() {
     // 2. Initialize Telegram Bot
     bot.initBot(APP_URL);
 
-    // 3. Listen on Port
+    // 3. Schedule daily survey at 23:00 Kyiv time
+    scheduleDailySurveys();
+
+    // 4. Listen on Port
     app.listen(PORT, () => {
       console.log(`🚀 Сервер запущено на порту ${PORT}`);
       console.log(`🔗 Посилання на додаток: ${APP_URL}`);
@@ -221,3 +294,4 @@ async function startServer() {
 }
 
 startServer();
+
