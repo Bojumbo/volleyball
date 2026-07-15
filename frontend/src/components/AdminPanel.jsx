@@ -94,12 +94,14 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
       } else {
         setSurveyStatus(prev => ({ ...prev, [date]: { type: 'error', msg: res.reason || 'Не вдалося надіслати опитування.' } }));
       }
+      await refreshData();
     } catch (err) {
       if (err.alreadySent) {
         setSurveyStatus(prev => ({ ...prev, [date]: { type: 'warning', msg: `⚠️ ${err.message}` } }));
       } else {
         setSurveyStatus(prev => ({ ...prev, [date]: { type: 'error', msg: err.message || 'Помилка при запуску опитування.' } }));
       }
+      await refreshData();
     } finally {
       setSurveyLoading(prev => ({ ...prev, [date]: false }));
     }
@@ -115,12 +117,14 @@ export default function AdminPanel({ sessions, adminData, onUpdateCapacity, onUp
       } else {
         setSurveyUserStatus(prev => ({ ...prev, [regId]: { type: 'error', msg: res.reason || 'Помилка.' } }));
       }
+      await refreshData();
     } catch (err) {
       if (err.alreadySent) {
         setSurveyUserStatus(prev => ({ ...prev, [regId]: { type: 'warning', msg: '⚠️ Вже надіслано!' } }));
       } else {
         setSurveyUserStatus(prev => ({ ...prev, [regId]: { type: 'error', msg: err.message || 'Помилка.' } }));
       }
+      await refreshData();
     } finally {
       setSurveyUserLoading(prev => ({ ...prev, [regId]: false }));
     }
