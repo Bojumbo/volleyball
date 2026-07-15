@@ -1,8 +1,9 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const fs = require('fs');
 
-const dbPath = path.resolve(__dirname, 'volleyball.db');
+// In Docker: DB_PATH=/data/volleyball.db (mounted volume)
+// In local dev: fallback to project directory
+const dbPath = process.env.DB_PATH || path.resolve(__dirname, 'volleyball.db');
 const db = new sqlite3.Database(dbPath);
 
 // Helper to run query with promise

@@ -1,0 +1,21 @@
+# Secrets and local config
+.env
+.env.local
+
+# Database
+*.db
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db

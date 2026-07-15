@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  volleyball:
+    build: .
+    container_name: volleyball_app
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - APP_URL=https://volleyball.bojumbohost.pp.ua
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DB_PATH=/data/volleyball.db
+    volumes:
+      - volleyball_db:/data
+    ports:
+      # Відкриваємо тільки на localhost — cloudflared (вже запущений на сервері)
+      # підключиться до нього. Зовні порт недоступний.
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  volleyball_db:
+    driver: local
