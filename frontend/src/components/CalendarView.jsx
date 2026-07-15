@@ -116,6 +116,8 @@ export default function CalendarView({ sessions, currentUser, onRegister, onUnre
     const avgDuration = (sumDuration / total).toFixed(1);
 
     return {
+      compCount,
+      trainCount: trainingCount,
       compPercent: Math.round((compCount / total) * 100),
       trainPercent: Math.round((trainingCount / total) * 100),
       beachCount,
@@ -421,14 +423,25 @@ export default function CalendarView({ sessions, currentUser, onRegister, onUnre
                 
                 {/* Format Stat */}
                 <div className="glass" style={{ padding: '14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Формат гри</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Формат гри (переважає)</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                        <span>🏆 Змагання ({stats.compPercent}%)</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px', fontWeight: 600 }}>
+                        <span style={{ color: stats.trainCount > stats.compCount ? 'var(--accent-lime)' : 'var(--accent-cyan)' }}>
+                          {stats.trainCount > stats.compCount ? '🏋️ Тренування' : '🏆 Змагання'}
+                        </span>
+                        <span>{Math.max(stats.compPercent, stats.trainPercent)}%</span>
                       </div>
-                      <div style={{ height: '5px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ width: `${stats.compPercent}%`, height: '100%', background: 'var(--accent-cyan)' }} />
+                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '6px' }}>
+                        <div style={{ 
+                          width: `${Math.max(stats.compPercent, stats.trainPercent)}%`, 
+                          height: '100%', 
+                          background: stats.trainCount > stats.compCount ? 'var(--accent-lime)' : 'var(--accent-cyan)' 
+                        }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        <span>🏆 Змагання: {stats.compCount}</span>
+                        <span>🏋️ Тренування: {stats.trainCount}</span>
                       </div>
                     </div>
                   </div>
